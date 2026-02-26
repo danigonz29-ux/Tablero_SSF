@@ -1,0 +1,18 @@
+[
+  {
+    "fecha": "2026-02-01",
+    "red": "Instagram",
+    "tipo": "Reel",
+    "alcance": 5400,
+    "interacciones": 320,
+    "clics": 85
+  },
+  {
+    "fecha": "2026-02-02",
+    "red": "Facebook",
+    "tipo": "Carrusel",
+    "alcance": 8200,
+    "interacciones": 410,
+    "clics": 120
+  }
+]

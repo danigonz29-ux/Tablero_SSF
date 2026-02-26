@@ -1,18 +1,53 @@
-export type SocialNetwork = 'instagram' | 'facebook' | 'tiktok' | 'twitter' | 'linkedin'
+// lib/types.ts
 
-export type PublicationStatus = 'pendiente' | 'publicado' | 'programado' | 'cancelado'
+export type SocialNetwork = "instagram" | "facebook" | "tiktok" | "twitter" | "linkedin"
 
-export type ContentFormat = 'video' | 'imagen' | 'carrusel' | 'reel' | 'story' | (string & {})
+export type PublicationStatus = "pendiente" | "publicado" | "programado" | "cancelado"
 
-export type ContentObjective = 'educar' | 'branding' | 'engagement' | 'venta' | 'informar' | (string & {})
+// Permite formatos personalizados sin perder autocompletado de los básicos
+export type ContentFormat = "video" | "imagen" | "carrusel" | "reel" | "story" | (string & {})
+
+// Permite objetivos personalizados sin perder autocompletado de los básicos
+export type ContentObjective = "educar" | "branding" | "engagement" | "venta" | "informar" | (string & {})
 
 export interface PublicationAttachment {
   id: string
   name: string
-  type: 'image' | 'video' | 'gif' | 'banner' | 'other'
+  type: "image" | "video" | "gif" | "banner" | "other"
   url: string
   previewUrl: string
   size: number
+}
+
+/**
+ * Métricas por red para una publicación específica.
+ * Nota: Mantener todo en number evita tener que parsear strings al sumar.
+ */
+export type NetworkMetric = {
+  network: SocialNetwork
+  reach: number
+  likes: number
+  comments: number
+  shares: number
+  views: number
+}
+
+export interface PublicationMetrics {
+  likes: number
+  comments: number
+  shares: number
+  reach: number
+  impressions: number
+  engagement: number
+}
+
+/**
+ * Link por red social.
+ * Esto evita repetir el shape en varios lados.
+ */
+export type PublicationLink = {
+  network: SocialNetwork
+  url: string
 }
 
 export interface Publication {
@@ -30,38 +65,38 @@ export interface Publication {
   responsibles: string[]
   observations: string
   status: PublicationStatus
-  links: { network: SocialNetwork; url: string }[]
+
+  // ✅ Tipado consistente + reusable
+  links: PublicationLink[]
+
+  /**
+   * Métricas generales (agregado) - opcional
+   */
   metrics?: PublicationMetrics
+
+  /**
+   * Archivos adjuntos - opcional
+   */
   attachments?: PublicationAttachment[]
-  networkMetrics?: NetworkPublicationMetrics[]
-}
 
-export interface NetworkPublicationMetrics {
-  network: SocialNetwork
-  reach: number       // Alcance (FB, IG, TikTok) o Impresiones (X, LinkedIn)
-  likes: number       // Me gusta
-  comments: number    // Comentarios
-  shares: number      // Compartidos
-  views: number       // Reproducciones (video)
-  url: string         // URL de la publicacion en la red social
-}
-
-export interface PublicationMetrics {
-  likes: number
-  comments: number
-  shares: number
-  reach: number
-  impressions: number
-  engagement: number
+  /**
+   * ✅ IMPORTANTÍSIMO: siempre que sea posible, guarda esto como [] en el origen.
+   * En runtime pueden venir datos sucios (null / {}), por eso en el código
+   * SIEMPRE se valida con Array.isArray antes de iterar.
+   */
+  networkMetrics?: NetworkMetric[]
 }
 
 // Labels por red social
-export const NETWORK_METRICS_CONFIG: Record<SocialNetwork, { reachLabel: string; showViews: 'always' | 'video' }> = {
-  facebook: { reachLabel: 'Alcance de la publicacion', showViews: 'video' },
-  instagram: { reachLabel: 'Alcance de la publicacion', showViews: 'video' },
-  twitter: { reachLabel: 'Impresiones de la publicacion', showViews: 'video' },
-  tiktok: { reachLabel: 'Alcance de la publicacion', showViews: 'always' },
-  linkedin: { reachLabel: 'Impresiones de la publicacion', showViews: 'video' },
+export const NETWORK_METRICS_CONFIG: Record<
+  SocialNetwork,
+  { reachLabel: string; showViews: "always" | "video" }
+> = {
+  facebook: { reachLabel: "Alcance de la publicacion", showViews: "video" },
+  instagram: { reachLabel: "Alcance de la publicacion", showViews: "video" },
+  twitter: { reachLabel: "Impresiones de la publicacion", showViews: "video" },
+  tiktok: { reachLabel: "Alcance de la publicacion", showViews: "always" },
+  linkedin: { reachLabel: "Impresiones de la publicacion", showViews: "video" },
 }
 
 export interface ImportantDate {
