@@ -1,0 +1,28 @@
+# Query: .select
+# ContextLines: 1
+
+5 results - 4 files
+
+components/dashboard/new-publication-modal.tsx:
+  308      } else {
+  309:       onChange([...selected, tag])
+  310      }
+
+  320      if (!selected.includes(tag)) {
+  321:       onChange([...selected, tag])
+  322      }
+
+components/ui/calendar.tsx:
+  194        data-selected-single={
+  195:         modifiers.selected &&
+  196          !modifiers.range_start &&
+
+hooks/usePublicaciones.ts:
+  37        .from("publicaciones")
+  38:       .select("*")
+  39        .order("created_at", { ascending: false });
+
+lib/supabase/publicaciones.ts:
+  22      .from("publicaciones")
+  23:     .select("id, created_at, fecha, created_by, payload, alcance, interacciones, titulo, copy, plataforma, link_pieza")
+  24      .gte("fecha", startISO)

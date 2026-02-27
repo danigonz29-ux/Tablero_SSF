@@ -1,0 +1,13 @@
+# Query: pub.status.toUpperCase()
+# ContextLines: 1
+
+2 results - 1 file
+
+components/dashboard/publication-calendar.tsx:
+  217                          <Badge variant="outline" className={`text-[10px] px-1.5 py-0.5 ${statusColors[pub.status]}`}>
+  218:                           {(pub.payload?.status ?? "pendiente").toUpperCase()}
+  219                          </Badge>
+
+  264                          <Badge variant="outline" className={`text-[10px] shrink-0 ${statusColors[pub.status]}`}>
+  265:                           {(pub.payload?.status ?? "pendiente").toUpperCase()}
+  266                          </Badge>

@@ -22,12 +22,51 @@ interface OverviewProps {
   selectedMonth: number
 }
 
+function normalizeNetworkMetrics(value: any): any[] {
+  if (!value) return []
+  if (Array.isArray(value)) return value
+
+  if (typeof value === "string") {
+    try {
+      const parsed = JSON.parse(value)
+      return normalizeNetworkMetrics(parsed)
+    } catch {
+      return []
+    }
+  }
+
+  if (typeof value === "object") {
+    const v = value as any
+
+    if (typeof v.network === "string") return [v]
+
+    const entries = Object.entries(v)
+    if (entries.length > 0) {
+      return entries
+        .map(([net, data]) => {
+          if (!data || typeof data !== "object") return null
+          return {
+            network: net,
+            reach: Number((data as any).reach ?? 0),
+            likes: Number((data as any).likes ?? 0),
+            comments: Number((data as any).comments ?? 0),
+            shares: Number((data as any).shares ?? 0),
+            views: Number((data as any).views ?? 0),
+            url: (data as any).url ?? "",
+          }
+        })
+        .filter(Boolean) as any[]
+    }
+  }
+
+  return []
+}
+
 export function Overview({ publications, selectedMonth }: OverviewProps) {
   const published = publications.filter((p) => p.status === "publicado").length
   const pending = publications.filter((p) => p.status === "pendiente").length
   const scheduled = publications.filter((p) => p.status === "programado").length
 
-  // Compute real engagement metrics from publication networkMetrics
   const realMetrics = useMemo(() => {
     let totalReach = 0
     let totalLikes = 0
@@ -35,43 +74,50 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
     let totalShares = 0
     let totalViews = 0
 
-    // Per-network aggregates
     const byNetwork: Record<
       string,
       { reach: number; likes: number; comments: number; shares: number; views: number; count: number }
     > = {}
 
     for (const pub of publications) {
-      // ✅ FIX: ensure networkMetrics is an array before iterating
-      if (!Array.isArray(pub.networkMetrics)) continue
+      const metrics = normalizeNetworkMetrics((pub as any).networkMetrics)
+      if (metrics.length === 0) continue
 
-      for (const nm of pub.networkMetrics) {
-        totalReach += nm.reach
-        totalLikes += nm.likes
-        totalComments += nm.comments
-        totalShares += nm.shares
-        totalViews += nm.views
+      for (const nm of metrics) {
+        const net = String(nm.network || "")
+        if (!net) continue
 
-        if (!byNetwork[nm.network]) {
-          byNetwork[nm.network] = { reach: 0, likes: 0, comments: 0, shares: 0, views: 0, count: 0 }
+        const reach = Number(nm.reach ?? 0)
+        const likes = Number(nm.likes ?? 0)
+        const comments = Number(nm.comments ?? 0)
+        const shares = Number(nm.shares ?? 0)
+        const views = Number(nm.views ?? 0)
+
+        totalReach += reach
+        totalLikes += likes
+        totalComments += comments
+        totalShares += shares
+        totalViews += views
+
+        if (!byNetwork[net]) {
+          byNetwork[net] = { reach: 0, likes: 0, comments: 0, shares: 0, views: 0, count: 0 }
         }
 
-        byNetwork[nm.network].reach += nm.reach
-        byNetwork[nm.network].likes += nm.likes
-        byNetwork[nm.network].comments += nm.comments
-        byNetwork[nm.network].shares += nm.shares
-        byNetwork[nm.network].views += nm.views
-        byNetwork[nm.network].count++
+        byNetwork[net].reach += reach
+        byNetwork[net].likes += likes
+        byNetwork[net].comments += comments
+        byNetwork[net].shares += shares
+        byNetwork[net].views += views
+        byNetwork[net].count++
       }
     }
 
-    // Compute engagement rate per network: (likes+comments+shares) / reach * 100
     const networkEngagement = NETWORK_ORDER.map((net) => {
       const data = byNetwork[net]
       if (!data || data.reach === 0) return { network: net, engagement: 0, interactions: 0, reach: 0 }
       const interactions = data.likes + data.comments + data.shares
       const engagement = (interactions / data.reach) * 100
-      return { network: net, engagement: parseFloat(engagement.toFixed(1)), interactions, reach: data.reach }
+      return { network: net, engagement: Number(engagement.toFixed(1)), interactions, reach: data.reach }
     })
 
     const maxEngagement = Math.max(...networkEngagement.map((n) => n.engagement), 1)
@@ -91,34 +137,10 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
   const hasAnyMetrics = realMetrics.totalReach > 0 || realMetrics.totalLikes > 0
 
   const stats = [
-    {
-      title: "Total Publicaciones",
-      value: publications.length,
-      icon: Calendar,
-      color: "text-chart-1",
-      bgColor: "bg-chart-1/10",
-    },
-    {
-      title: "Publicadas",
-      value: published,
-      icon: CheckCircle,
-      color: "text-chart-1",
-      bgColor: "bg-chart-1/10",
-    },
-    {
-      title: "Pendientes",
-      value: pending,
-      icon: Clock,
-      color: "text-chart-3",
-      bgColor: "bg-chart-3/10",
-    },
-    {
-      title: "Programadas",
-      value: scheduled,
-      icon: TrendingUp,
-      color: "text-chart-2",
-      bgColor: "bg-chart-2/10",
-    },
+    { title: "Total Publicaciones", value: publications.length, icon: Calendar, color: "text-chart-1", bgColor: "bg-chart-1/10" },
+    { title: "Publicadas", value: published, icon: CheckCircle, color: "text-chart-1", bgColor: "bg-chart-1/10" },
+    { title: "Pendientes", value: pending, icon: Clock, color: "text-chart-3", bgColor: "bg-chart-3/10" },
+    { title: "Programadas", value: scheduled, icon: TrendingUp, color: "text-chart-2", bgColor: "bg-chart-2/10" },
   ]
 
   const engagementStats = [
@@ -128,7 +150,6 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
     { title: "Compartidos", value: realMetrics.totalShares.toLocaleString(), icon: Share2 },
   ]
 
-  // Upcoming / pending publications sorted by date
   const upcomingPubs = useMemo(() => {
     return publications
       .filter((p) => p.status === "pendiente" || p.status === "programado")
@@ -138,7 +159,6 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Publication status stats */}
       <div>
         <h3 className="text-lg font-medium text-foreground mb-4">
           Estado de Publicaciones - {MONTHS[selectedMonth - 1]} {new Date().getFullYear()}
@@ -162,7 +182,6 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
         </div>
       </div>
 
-      {/* Engagement metrics - computed from real data */}
       <div>
         <h3 className="text-lg font-medium text-foreground mb-4">Metricas de Engagement</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -185,7 +204,6 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Upcoming publications */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-foreground">Proximas Publicaciones</CardTitle>
@@ -203,9 +221,7 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
                   <div className="flex items-center gap-2 shrink-0 ml-2">
                     <Badge
                       variant="outline"
-                      className={`text-xs ${
-                        pub.status === "programado" ? "text-chart-2 border-chart-2" : "text-chart-3 border-chart-3"
-                      }`}
+                      className={`text-xs ${pub.status === "programado" ? "text-chart-2 border-chart-2" : "text-chart-3 border-chart-3"}`}
                     >
                       {pub.status}
                     </Badge>
@@ -215,14 +231,11 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
                   </div>
                 </div>
               ))}
-              {upcomingPubs.length === 0 && (
-                <p className="text-center text-muted-foreground py-8">No hay publicaciones pendientes o programadas</p>
-              )}
+              {upcomingPubs.length === 0 && <p className="text-center text-muted-foreground py-8">No hay publicaciones pendientes o programadas</p>}
             </div>
           </CardContent>
         </Card>
 
-        {/* Network performance - computed from real data */}
         <Card className="bg-card border-border">
           <CardHeader>
             <CardTitle className="text-foreground">Rendimiento por Red Social</CardTitle>
@@ -237,11 +250,7 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
                       <div
                         className="bg-primary h-2.5 rounded-full transition-all duration-500"
                         style={{
-                          width: `${
-                            realMetrics.maxEngagement > 0
-                              ? (network.engagement / realMetrics.maxEngagement) * 100
-                              : 0
-                          }%`,
+                          width: `${realMetrics.maxEngagement > 0 ? (network.engagement / realMetrics.maxEngagement) * 100 : 0}%`,
                         }}
                       />
                     </div>
@@ -252,9 +261,7 @@ export function Overview({ publications, selectedMonth }: OverviewProps) {
             ) : (
               <div className="text-center py-8">
                 <p className="text-muted-foreground">Sin datos de metricas</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Agrega metricas en cada publicacion para ver el rendimiento
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">Agrega metricas en cada publicacion para ver el rendimiento</p>
               </div>
             )}
           </CardContent>

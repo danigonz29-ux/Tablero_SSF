@@ -10,7 +10,7 @@ import { MetricsView } from "@/components/dashboard/metrics-view"
 import { SettingsView } from "@/components/dashboard/settings-view"
 import { NewPublicationModal } from "@/components/dashboard/new-publication-modal"
 import { TodayNotifications } from "@/components/dashboard/today-notifications"
-import { MONTHS, DAYS_OF_WEEK, IMPORTANT_DATES } from "@/lib/data"
+import { DAYS_OF_WEEK, IMPORTANT_DATES } from "@/lib/data"
 import type { Publication, PublicationStatus, ContentObjective, ContentFormat } from "@/lib/types"
 import type { PublicationFormData } from "@/components/dashboard/new-publication-modal"
 
@@ -27,6 +27,53 @@ const TAB_TITLES: Record<string, string> = {
   dates: "Fechas Especiales",
   metrics: "Métricas y Análisis",
   settings: "Configuración",
+}
+
+/**
+ * Normaliza publicaciones que vienen de Supabase
+ * para que el UI no reviente y el modal tenga métricas.
+ *
+ * Nota: Algunas implementaciones guardan métricas en columnas (alcance, interacciones)
+ * y el UI las espera en pub.networkMetrics o pub.metrics. Aquí las "puenteamos".
+ */
+function normalizePublication(pub: any): Publication {
+  const alcance = typeof pub?.alcance === "number" ? pub.alcance : 0
+  const interacciones = typeof pub?.interacciones === "number" ? pub.interacciones : 0
+
+  const safe: any = { ...pub }
+
+  // Arrays que el UI suele iterar
+  safe.networks = Array.isArray(safe.networks) ? safe.networks : []
+  safe.hashtags = Array.isArray(safe.hashtags) ? safe.hashtags : []
+  safe.links = Array.isArray(safe.links) ? safe.links : []
+  safe.responsibles = Array.isArray(safe.responsibles) ? safe.responsibles : []
+  safe.attachments = Array.isArray(safe.attachments) ? safe.attachments : []
+
+  // Métricas: garantizamos algo usable por el modal
+  // 1) Si tu modal usa networkMetrics:
+  safe.networkMetrics =
+    safe.networkMetrics ??
+    {
+      // nombres genéricos (si tu UI usa estos)
+      reach: alcance,
+      interactions: interacciones,
+      // por si tu UI usa directamente estas keys
+      alcance,
+      interacciones,
+    }
+
+  // 2) Si tu modal usa metrics:
+  safe.metrics =
+    safe.metrics ??
+    {
+      reach: alcance,
+      interactions: interacciones,
+      // por compatibilidad (si alguien lo renderiza así)
+      alcance,
+      interacciones,
+    }
+
+  return safe as Publication
 }
 
 export default function Dashboard() {
@@ -63,8 +110,13 @@ export default function Dashboard() {
     try {
       setLoadingPubs(true)
       setPubsError(null)
+
       const pubs = await fetchPublicacionesByMonthYear(selectedMonth, selectedYear)
-      setPublications(pubs)
+
+      // ✅ NORMALIZACIÓN CLAVE (esto te arregla el “Ver detalle” con métricas en 0)
+      const normalized = (pubs || []).map((p: any) => normalizePublication(p))
+
+      setPublications(normalized)
     } catch (e: any) {
       setPubsError(e?.message ?? "Error cargando publicaciones")
     } finally {
@@ -76,6 +128,8 @@ export default function Dashboard() {
     loadPublications()
   }, [loadPublications])
 
+  // OJO: ya estás trayendo por mes/año desde Supabase, pero mantenemos este filtro
+  // por seguridad si el fetch en algún momento cambia.
   const filteredPublications = useMemo(() => {
     return publications.filter((pub) => {
       const pubDate = new Date(pub.date)
